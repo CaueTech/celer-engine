@@ -1,3 +1,3 @@
-module github.com/CaueTech/ProcessingEngine
+module github.com/CaueTech/celer-engine
 
 go 1.25.0

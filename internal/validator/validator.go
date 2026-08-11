@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	// O GO usa o nome do módulo que inicia o projeto como raiz para os demais diretórios locais
 	"github.com/CaueTech/celer-engine/internal/domain"
 )
 

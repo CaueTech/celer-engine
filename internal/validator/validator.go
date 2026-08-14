@@ -1,48 +1,52 @@
 package validator
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/CaueTech/celer-engine/internal/domain"
+	"github.com/CaueTech/celer-engine/internal/proto/pb"
+	"google.golang.org/protobuf/proto"
 )
 
-// Erros customizados para o orquestrador saber EXATAMENTE o que falhou
 var (
-	ErrInvalidJSON = errors.New("payload is not a valid JSON")
-	ErrEmptyFields = errors.New("event_id and robot_id are required fields")
+	ErrInvalidProtobuf = errors.New("payload is not a valid protobuf message")
+	ErrEmptyFields     = errors.New("event_id and robot_id are required fields")
 )
 
-// JSONValidator é a struct concreta que vai implementar a interface domain.Validator
-type JSONValidator struct{}
+// ProtoValidator implements domain.Validator for Protobuf payloads
+type ProtoValidator struct{}
 
-// NewJSONValidator cria uma nova instância do validador
-func NewJSONValidator() *JSONValidator {
-	return &JSONValidator{}
+// NewProtoValidator creates a new instance of ProtoValidator
+func NewProtoValidator() *ProtoValidator {
+	return &ProtoValidator{}
 }
 
-/* 
-	Validate pega o []byte, faz o decoding e checa os campos obrigatórios. (v *JSONValidator) indica que esta função é um método acoplado à struct JSONValidator, é similar ao this ou self em linguagens que implementam classes.
-	
-*/
-func (v *JSONValidator) Validate(rawPayload []byte) (*domain.Event, error) {
-	var event domain.Event
+// Validate decodes binary Protobuf bytes and maps them to domain.Event
+func (v *ProtoValidator) Validate(rawPayload []byte) (*domain.Event, error) {
+	var protoEvent pb.EventProto
 
-	// 1. Etapa de Decoding (Bytes -> Struct). O Unmarshal() já faz isso automaticamente
-	err := json.Unmarshal(rawPayload, &event)
-	if err != nil {
-		// Se o JSON estiver quebrado (sintaxe errada), retorna o erro de sintaxe
-		return nil, fmt.Errorf("%w: %v", ErrInvalidJSON, err)
+	// 1. Decoding: Binary bytes -> Generated Proto Struct
+	if err := proto.Unmarshal(rawPayload, &protoEvent); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidProtobuf, err)                                                                                                                                            
 	}
 
-	/* 
-		2. Etapa de validação de regras de negócio. Se o JSON vier com campos não preenchidos, o Unmarshal, por padrão, preenche os campos com valores nulos para o respectivo tipo do campo do JSON (para strings, isso seria ""). Para verificar isso, segue a verificação a seguir.
-	*/
-	if event.EventID == "" || event.RobotID == "" {
-		return nil, ErrEmptyFields
+	// 2. Business validation rules
+	if protoEvent.GetEventId() == "" || protoEvent.GetRobotId() == "" {
+		return nil, ErrEmptyFields                                                                                                                                                                           
 	}
 
-	// 3. Sucesso! Retorna o ponteiro do evento preenchido e erro nulo
-	return &event, nil
+	// 3. Mapping: Transport DTO (pb.EventProto) -> Domain Entity (domain.Event)
+	event := &domain.Event{
+		EventID:   protoEvent.GetEventId(),                                                                                                                                                                  
+		RobotID:   protoEvent.GetRobotId(),                                                                                                                                                                  
+		Timestamp: protoEvent.GetTimestamp(),                                                                                                                                                                
+		Status:    protoEvent.GetStatus(),                                                                                                                                                                   
+	}
+
+	if protoEvent.GetTelemetry() != nil {
+		event.Telemetry = protoEvent.GetTelemetry().AsMap()                                                                                                                                                  
+	}
+
+	return event, nil
 }

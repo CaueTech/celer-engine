@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+    package proto;
+
+    option go_package = "github.com/CaueTech/celer-engine/internal/proto/pb";
+
+    import "google/protobuf/struct.proto"; // Allows dynamic JSON-like maps for telemetry
+
+    message EventProto {
+      string event_id = 1;
+      string robot_id = 2;
+      int64 timestamp = 3;
+      string status = 4;
+      google.protobuf.Struct telemetry = 5;
+    }

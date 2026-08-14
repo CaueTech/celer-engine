@@ -2,7 +2,9 @@ package domain
 
 // import "time"
 
-// As structs tags json servem somente para uniformizar os campos em snake_case
+/*
+	As structs tags json servem somente para uniformizar os campos em snake_case. Apesar de estar usando Protobuf no pipeline do Kafka na maioria dos casos, manter as tags por enquanto é ideal.
+*/
 
 // Event representa o payload de telemetria enviado pelo Gerador de Caos que "imita" robôs
 type Event struct {

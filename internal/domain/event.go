@@ -42,9 +42,15 @@ type DLQEnvelope struct {
 	FailedAt    int64  `json:"failed_at"`
 }
 
+// Constantes com os status de telemetria
+const (
+	StatusOK      = "OK"
+	StatusWarning = "WARNING"
+	StatusError   = "ERROR"
+)
+
 // Constantes com as regras de negócio
 const (
-	StatusError               = "ERROR"
 	RuleTooManyErrorsInWindow = "TOO_MANY_ERRORS_IN_WINDOW"
 	SeverityCritical          = "CRITICAL"
 )

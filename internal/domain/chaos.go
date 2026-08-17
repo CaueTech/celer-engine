@@ -1,10 +1,10 @@
 package domain
 
-import "time"
+import"time"
 
-// ChaosConfig define as configurações para simulação e injeção de anomalias
+// ChaosConfig defines settings for anomaly injection and simulation.
 type ChaosConfig struct {
-	ChaosRate        float64       // Ex: 0.05 (5% de chance de gerar evento caótico)
-	EmissionInterval time.Duration // Intervalo entre emissões (ex: 200ms)
-	RobotPool        []string      // Ex: ["bot-01", "bot-02", ..., "bot-20"]
+	ChaosRate        float64       // E.g., 0.05 (5% chance of generating a chaotic event)
+	EmissionInterval time.Duration // Interval between emissions (e.g., 200ms)
+	RobotPool        []string      // E.g., ["bot-01", "bot-02", ..., "bot-20"]
 }

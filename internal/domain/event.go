@@ -1,23 +1,21 @@
 package domain
 
-// import "time"
-
 /*
-	As structs tags json servem somente para uniformizar os campos em snake_case. Apesar de estar usando Protobuf no pipeline do Kafka na maioria dos casos, manter as tags por enquanto é ideal.
+	JSON struct tags are used to standardize fields in snake_case. Even though Protobuf is used in the Kafka pipeline in most cases, keeping these tags is helpful for JSON compatibility.
 */
 
-// Event representa o payload de telemetria enviado pelo Gerador de Caos que "imita" robôs
+// Event represents the telemetry payload sent by the Chaos Generator imitating robots.
 type Event struct {
 	EventID   string                 `json:"event_id"`
 	RobotID   string                 `json:"robot_id"`
 	Timestamp int64                  `json:"timestamp"`
 	Status    string                 `json:"status"`
 
-	// Relaciona uma chave string com qualquer tipagem (interface{})
+	// Maps dynamic telemetry metric keys to their values
 	Telemetry map[string]interface{} `json:"telemetry"` 
 }
 
-// Alert representa a notificação gerada quando a regra da Janela de Tempo é violada
+// Alert represents the notification generated when a time window rule is violated.
 type Alert struct {
 	AlertID               string     `json:"alert_id"`
 	RobotID               string     `json:"robot_id"`
@@ -28,28 +26,28 @@ type Alert struct {
 	GeneratedAt           int64      `json:"generated_at"`
 }
 
-// TimeWindow detalha o intervalo analisado para a emissão do alerta
+// TimeWindow details the interval analyzed when triggering an alert.
 type TimeWindow struct {
 	StartTimestamp  int64 `json:"start_timestamp"`
 	EndTimestamp    int64 `json:"end_timestamp"`
 	DurationSeconds int   `json:"duration_seconds"`
 }
 
-// DLQEnvelope empacota dados corrompidos para serem enviados à Dead Letter Queue
+// DLQEnvelope wraps corrupted or invalid data to be sent to the Dead Letter Queue.
 type DLQEnvelope struct {
 	RawPayload  string `json:"raw_payload"`
 	ErrorReason string `json:"error_reason"`
 	FailedAt    int64  `json:"failed_at"`
 }
 
-// Constantes com os status de telemetria
+// Telemetry status constants.
 const (
 	StatusOK      = "OK"
 	StatusWarning = "WARNING"
 	StatusError   = "ERROR"
 )
 
-// Constantes com as regras de negócio
+// Business rules and severity constants.
 const (
 	RuleTooManyErrorsInWindow = "TOO_MANY_ERRORS_IN_WINDOW"
 	SeverityCritical          = "CRITICAL"

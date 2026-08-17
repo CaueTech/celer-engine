@@ -39,44 +39,44 @@ func NewGenerator(cfg domain.ChaosConfig) *Generator {
 	}
 }
 
-// GeneratePayload gera os bytes do Protobuf (ou corrompidos) prontos para envio
+// GeneratePayload generates serialized Protobuf bytes (or corrupted data) ready for transmission.
 func (g *Generator) GeneratePayload() ([]byte, error) {
-	// 1. Decisão probabilística de caos
+	// 1. Probabilistic decision for chaos injection
 	isChaos := randFloat() < g.config.ChaosRate
 
-	// 2. Caos extremo: payload de bytes completamente corrompido
-	if isChaos && randFloat() < 0.20 { // 20% do caos é corrupção binária
+	// 2. Extreme chaos: completely corrupted binary payload
+	if isChaos && randFloat() < 0.20 { // 20% of chaos is binary corruption
 		return []byte{0xFF, 0xFE, 0x00, 0xAA}, nil
 	}
 
-	// 3. Montagem do evento base
+	// 3. Base event assembly
 	eventID := uuid.NewString()
 	robotID := g.config.RobotPool[randInt(len(g.config.RobotPool))]
 	status := g.statusPool[randInt(len(g.statusPool))]
 	timestamp := time.Now().Unix()
 
-	// 4. Injeção de anomalias nos campos
+	// 4. Anomaly injection into fields
 	if isChaos {
-		switch randInt(4) {                                                                             
-		case 0:                                                                                         
-			eventID = "" // Violação: event_id vazio                                                    
-		case 1:                                                                                         
-			robotID = "" // Violação: robot_id vazio                                                    
-		case 2:                                                                                         
-			if g.lastEventID != "" {                                                                    
-				eventID = g.lastEventID // Duplicação de ID                                             
-			}                                                                                           
-		case 3:                                                                                         
-			status = domain.StatusError // Força status de erro                                         
-		}                                                                                               
+		switch randInt(4) {
+		case 0:
+			eventID = "" // Violation: empty event_id
+		case 1:
+			robotID = "" // Violation: empty robot_id
+		case 2:
+			if g.lastEventID != "" {
+				eventID = g.lastEventID // Duplicate ID anomaly
+			}
+		case 3:
+			status = domain.StatusError // Force error status
+		}
 	} else {
-		g.lastEventID = eventID                                                                         
+		g.lastEventID = eventID
 	}
 
-	// 5. Telemetria dinâmica
+	// 5. Dynamic telemetry
 	telemetryMap := map[string]interface{}{
-		"battery_level": randInt(100),                                                                  
-		"cpu_temp":      40.0 + (randFloat() * 45.0),                                                   
+		"battery_level": randInt(100),
+		"cpu_temp":      40.0 + (randFloat() * 45.0),
 	}
 	telemetryStruct, _ := structpb.NewStruct(telemetryMap)
 

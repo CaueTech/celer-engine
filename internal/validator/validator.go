@@ -3,7 +3,6 @@ package validator
 import (
 	"errors"
 	"fmt"
-
 	"github.com/CaueTech/celer-engine/internal/domain"
 	"github.com/CaueTech/celer-engine/internal/proto/pb"
 	"google.golang.org/protobuf/proto"

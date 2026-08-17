@@ -2,15 +2,15 @@ package domain
 
 import "context"
 
-// Validator é responsável por validar e fazer o parse dos dados brutos recebidos
+// Validator is responsible for validating and parsing raw incoming payloads.
 type Validator interface {
 	Validate(rawPayload []byte) (*Event, error)
 }
 
-// Aggregator gerencia a Janela de Tempo e a verificação de Idempotência
+// Aggregator manages the Time Window and idempotency checks.
 type Aggregator interface {
-	// Process recebe um evento válido. Retorna um *Alert caso a regra seja disparada,
-	// ou nil caso o evento seja apenas processado sem gerar alertas.
+	// Process receives a valid event. Returns an *Alert if a rule is triggered,
+	// or nil if the event is processed without generating alerts.
 	Process(event *Event) (*Alert, error)
 }
 
@@ -21,7 +21,7 @@ type MessageProducer interface {
 }
 
 type MessageConsumer interface {
-    // Recebe o channel para onde deve enviar os bytes brutos
+    // StartConsuming receives the channel where raw bytes should be sent.
     StartConsuming(ctx context.Context, ingestionChan chan<- []byte) error
     Close() error
 }

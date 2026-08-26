@@ -7,23 +7,6 @@ import (
 	"github.com/CaueTech/celer-engine/internal/domain"
 )
 
-// OutboundType indicates which target Kafka topic the outbound message is routed to.
-type OutboundType int
-
-const (
-	OutboundTypeDLQ OutboundType = iota
-	OutboundTypeWarning
-	OutboundTypeAlert
-)
-
-// OutboundMessage wraps the payload and type to be dispatched by the producer.
-type OutboundMessage struct {
-	Type    OutboundType
-	DLQ     *domain.DLQEnvelope
-	Warning *domain.Event
-	Alert   *domain.Alert
-}
-
 // Worker coordinates validation and aggregation for raw incoming payloads.
 type Worker struct {
 	validator  domain.Validator
@@ -39,10 +22,10 @@ func NewWorker(v domain.Validator, a domain.Aggregator) *Worker {
 }
 
 // ProcessPayload validates raw payload bytes:
-// - If invalid: creates a DLQEnvelope and returns OutboundTypeDLQ message.
-// - If valid: creates OutboundTypeWarning message, and if Aggregator triggers an Alert, adds OutboundTypeAlert message.
-func (w *Worker) ProcessPayload(rawPayload []byte) []OutboundMessage {
-	outboundMsgs := make([]OutboundMessage, 0, 2)
+// - If invalid: creates a DLQEnvelope and returns domain.OutboundTypeDLQ message.
+// - If valid: creates domain.OutboundTypeWarning message, and if Aggregator triggers an Alert, adds domain.OutboundTypeAlert message.
+func (w *Worker) ProcessPayload(rawPayload []byte) []domain.OutboundMessage {
+	outboundMsgs := make([]domain.OutboundMessage, 0, 2)
 
 	// 1. Validate payload
 	event, err := w.validator.Validate(rawPayload)
@@ -52,16 +35,16 @@ func (w *Worker) ProcessPayload(rawPayload []byte) []OutboundMessage {
 			ErrorReason: err.Error(),
 			FailedAt:    time.Now().Unix(),
 		}
-		outboundMsgs = append(outboundMsgs, OutboundMessage{
-			Type: OutboundTypeDLQ,
+		outboundMsgs = append(outboundMsgs, domain.OutboundMessage{
+			Type: domain.OutboundTypeDLQ,
 			DLQ:  &dlq,
 		})
 		return outboundMsgs
 	}
 
 	// 2. Payload is a valid domain event -> push to Warnings topic
-	outboundMsgs = append(outboundMsgs, OutboundMessage{
-		Type:    OutboundTypeWarning,
+	outboundMsgs = append(outboundMsgs, domain.OutboundMessage{
+		Type:    domain.OutboundTypeWarning,
 		Warning: event,
 	})
 
@@ -74,16 +57,16 @@ func (w *Worker) ProcessPayload(rawPayload []byte) []OutboundMessage {
 				ErrorReason: "aggregator error: " + aggErr.Error(),
 				FailedAt:    time.Now().Unix(),
 			}
-			outboundMsgs = append(outboundMsgs, OutboundMessage{
-				Type: OutboundTypeDLQ,
+			outboundMsgs = append(outboundMsgs, domain.OutboundMessage{
+				Type: domain.OutboundTypeDLQ,
 				DLQ:  &dlq,
 			})
 			return outboundMsgs
 		}
 
 		if alert != nil {
-			outboundMsgs = append(outboundMsgs, OutboundMessage{
-				Type:  OutboundTypeAlert,
+			outboundMsgs = append(outboundMsgs, domain.OutboundMessage{
+				Type:  domain.OutboundTypeAlert,
 				Alert: alert,
 			})
 		}
@@ -94,7 +77,7 @@ func (w *Worker) ProcessPayload(rawPayload []byte) []OutboundMessage {
 
 // StartProcessing listens on ingestionChan, processes incoming raw bytes,
 // and emits outbound messages into outboundChan.
-func (w *Worker) StartProcessing(ctx context.Context, ingestionChan <-chan []byte, outboundChan chan<- OutboundMessage) {
+func (w *Worker) StartProcessing(ctx context.Context, ingestionChan <-chan []byte, outboundChan chan<- domain.OutboundMessage) {
 	for {
 		select {
 		case <-ctx.Done():

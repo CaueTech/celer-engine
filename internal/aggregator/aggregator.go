@@ -24,18 +24,18 @@ type WindowAggregator struct {
 	history map[string][]int64
 }
 
-// NewWindowAggregator creates a WindowAggregator with the given window duration (in seconds) and alert threshold count.
-func NewWindowAggregator(windowDurationSeconds int, threshold int) *WindowAggregator {
-	if windowDurationSeconds <= 0 {
-		windowDurationSeconds = 60
+// NewWindowAggregator creates a WindowAggregator with settings provided in domain.AggregatorConfig.
+func NewWindowAggregator(cfg domain.AggregatorConfig) *WindowAggregator {
+	if cfg.WindowDurationSeconds <= 0 {
+		cfg.WindowDurationSeconds = 60
 	}
-	if threshold <= 0 {
-		threshold = 10
+	if cfg.Threshold <= 0 {
+		cfg.Threshold = 10
 	}
 
 	return &WindowAggregator{
-		windowDurationSeconds: int64(windowDurationSeconds),
-		threshold:             threshold,
+		windowDurationSeconds: int64(cfg.WindowDurationSeconds),
+		threshold:             cfg.Threshold,
 		history:               make(map[string][]int64),
 	}
 }
@@ -51,6 +51,8 @@ func (a *WindowAggregator) Process(event *domain.Event) (*domain.Alert, error) {
 	}
 
 	a.mu.Lock()
+
+	// This schedules the Unlock() to when the functio exits
 	defer a.mu.Unlock()
 
 	cutoff := event.Timestamp - a.windowDurationSeconds

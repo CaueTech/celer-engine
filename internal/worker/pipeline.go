@@ -16,16 +16,16 @@ type Pipeline struct {
 	bufferSize int
 }
 
-// NewPipeline creates a new Pipeline coordinator.
-func NewPipeline(consumer domain.MessageConsumer, worker *Worker, producer domain.MessageProducer, bufferSize int) *Pipeline {
-	if bufferSize <= 0 {
-		bufferSize = 100
+// NewPipeline creates a new Pipeline coordinator configured via domain.PipelineConfig.
+func NewPipeline(consumer domain.MessageConsumer, worker *Worker, producer domain.MessageProducer, cfg domain.PipelineConfig) *Pipeline {
+	if cfg.BufferSize <= 0 {
+		cfg.BufferSize = 100
 	}
 	return &Pipeline{
 		consumer:   consumer,
 		worker:     worker,
 		producer:   producer,
-		bufferSize: bufferSize,
+		bufferSize: cfg.BufferSize,
 	}
 }
 
@@ -33,7 +33,7 @@ func NewPipeline(consumer domain.MessageConsumer, worker *Worker, producer domai
 // It blocks until context is canceled or all goroutines complete.
 func (p *Pipeline) Run(ctx context.Context) error {
 	ingestionChan := make(chan []byte, p.bufferSize)
-	outboundChan := make(chan OutboundMessage, p.bufferSize)
+	outboundChan := make(chan domain.OutboundMessage, p.bufferSize)
 
 	var wg sync.WaitGroup
 
@@ -69,15 +69,15 @@ func (p *Pipeline) Run(ctx context.Context) error {
 				}
 				var err error
 				switch msg.Type {
-				case OutboundTypeDLQ:
+				case domain.OutboundTypeDLQ:
 					if msg.DLQ != nil {
 						err = p.producer.PublishDLQ(ctx, *msg.DLQ)
 					}
-				case OutboundTypeWarning:
+				case domain.OutboundTypeWarning:
 					if msg.Warning != nil {
 						err = p.producer.PublishWarning(ctx, *msg.Warning)
 					}
-				case OutboundTypeAlert:
+				case domain.OutboundTypeAlert:
 					if msg.Alert != nil {
 						err = p.producer.PublishAlert(ctx, *msg.Alert)
 					}

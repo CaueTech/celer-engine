@@ -54,7 +54,7 @@ func (m *mockConsumer) Close() error {
 }
 
 type mockProducer struct {
-	mu             sync.Mutex
+	mu                sync.Mutex
 	alertsPublished   []domain.Alert
 	warningsPublished []domain.Event
 	dlqPublished      []domain.DLQEnvelope
@@ -100,8 +100,8 @@ func TestWorker_ProcessPayload_InvalidPayload(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("expected 1 message for invalid payload, got %d", len(msgs))
 	}
-	if msgs[0].Type != OutboundTypeDLQ {
-		t.Errorf("expected OutboundTypeDLQ, got %v", msgs[0].Type)
+	if msgs[0].Type != domain.OutboundTypeDLQ {
+		t.Errorf("expected domain.OutboundTypeDLQ, got %v", msgs[0].Type)
 	}
 	if msgs[0].DLQ == nil || msgs[0].DLQ.ErrorReason != valErr.Error() {
 		t.Errorf("expected DLQ error reason %s, got %+v", valErr.Error(), msgs[0].DLQ)
@@ -126,8 +126,8 @@ func TestWorker_ProcessPayload_ValidEvent_NoAlert(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("expected 1 message (Warning), got %d", len(msgs))
 	}
-	if msgs[0].Type != OutboundTypeWarning {
-		t.Errorf("expected OutboundTypeWarning, got %v", msgs[0].Type)
+	if msgs[0].Type != domain.OutboundTypeWarning {
+		t.Errorf("expected domain.OutboundTypeWarning, got %v", msgs[0].Type)
 	}
 	if msgs[0].Warning.EventID != "evt-001" {
 		t.Errorf("expected Warning EventID evt-001, got %s", msgs[0].Warning.EventID)
@@ -154,11 +154,11 @@ func TestWorker_ProcessPayload_ValidEvent_TriggersAlert(t *testing.T) {
 	if len(msgs) != 2 {
 		t.Fatalf("expected 2 messages (Warning + Alert), got %d", len(msgs))
 	}
-	if msgs[0].Type != OutboundTypeWarning {
-		t.Errorf("expected first message to be OutboundTypeWarning, got %v", msgs[0].Type)
+	if msgs[0].Type != domain.OutboundTypeWarning {
+		t.Errorf("expected first message to be domain.OutboundTypeWarning, got %v", msgs[0].Type)
 	}
-	if msgs[1].Type != OutboundTypeAlert {
-		t.Errorf("expected second message to be OutboundTypeAlert, got %v", msgs[1].Type)
+	if msgs[1].Type != domain.OutboundTypeAlert {
+		t.Errorf("expected second message to be domain.OutboundTypeAlert, got %v", msgs[1].Type)
 	}
 	if msgs[1].Alert.AlertID != "alert-001" {
 		t.Errorf("expected AlertID alert-001, got %s", msgs[1].Alert.AlertID)
@@ -194,7 +194,7 @@ func TestPipeline_FullIntegration(t *testing.T) {
 		},
 	}
 
-	pipeline := NewPipeline(consumer, worker, producer, 10)
+	pipeline := NewPipeline(consumer, worker, producer, domain.PipelineConfig{BufferSize: 10})
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -233,7 +233,7 @@ func TestPipeline_ContextCancel(t *testing.T) {
 		},
 	}
 
-	pipeline := NewPipeline(consumer, worker, producer, 10)
+	pipeline := NewPipeline(consumer, worker, producer, domain.PipelineConfig{BufferSize: 10})
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {

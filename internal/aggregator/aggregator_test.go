@@ -11,7 +11,7 @@ import (
 )
 
 func TestWindowAggregator_BelowThreshold(t *testing.T) {
-	agg := NewWindowAggregator(60, 3)
+	agg := NewWindowAggregator(domain.AggregatorConfig{WindowDurationSeconds: 60, Threshold: 3})
 	now := time.Now().Unix()
 
 	event1 := &domain.Event{EventID: "e1", RobotID: "robot-1", Timestamp: now}
@@ -29,7 +29,7 @@ func TestWindowAggregator_BelowThreshold(t *testing.T) {
 }
 
 func TestWindowAggregator_TriggerAlert(t *testing.T) {
-	agg := NewWindowAggregator(60, 3)
+	agg := NewWindowAggregator(domain.AggregatorConfig{WindowDurationSeconds: 60, Threshold: 3})
 	now := time.Now().Unix()
 
 	event1 := &domain.Event{EventID: "e1", RobotID: "robot-1", Timestamp: now}
@@ -65,7 +65,7 @@ func TestWindowAggregator_TriggerAlert(t *testing.T) {
 }
 
 func TestWindowAggregator_ExpiredEvents(t *testing.T) {
-	agg := NewWindowAggregator(10, 3)
+	agg := NewWindowAggregator(domain.AggregatorConfig{WindowDurationSeconds: 10, Threshold: 3})
 	baseTime := int64(1000)
 
 	// Event at t=1000
@@ -88,7 +88,7 @@ func TestWindowAggregator_ExpiredEvents(t *testing.T) {
 }
 
 func TestWindowAggregator_MultiRobotIsolation(t *testing.T) {
-	agg := NewWindowAggregator(60, 2)
+	agg := NewWindowAggregator(domain.AggregatorConfig{WindowDurationSeconds: 60, Threshold: 2})
 	now := time.Now().Unix()
 
 	eventA := &domain.Event{EventID: "e1", RobotID: "robot-A", Timestamp: now}
@@ -113,7 +113,7 @@ func TestWindowAggregator_MultiRobotIsolation(t *testing.T) {
 }
 
 func TestWindowAggregator_InvalidInputs(t *testing.T) {
-	agg := NewWindowAggregator(60, 3)
+	agg := NewWindowAggregator(domain.AggregatorConfig{WindowDurationSeconds: 60, Threshold: 3})
 
 	_, err1 := agg.Process(nil)
 	if !errors.Is(err1, ErrNilEvent) {
@@ -128,7 +128,7 @@ func TestWindowAggregator_InvalidInputs(t *testing.T) {
 }
 
 func TestWindowAggregator_ThreadSafety(t *testing.T) {
-	agg := NewWindowAggregator(60, 1000)
+	agg := NewWindowAggregator(domain.AggregatorConfig{WindowDurationSeconds: 60, Threshold: 1000})
 	var wg sync.WaitGroup
 	now := time.Now().Unix()
 

@@ -3,14 +3,12 @@ package kafka
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/CaueTech/celer-engine/internal/domain"
 	"github.com/segmentio/kafka-go"
 )
-
-// Ensure Producer implements domain.MessageProducer interface at compile time.
-var _ domain.MessageProducer = (*Producer)(nil)
 
 // Writer is an interface abstracting kafka-go Writer operations for testability.
 type Writer interface {
@@ -18,15 +16,15 @@ type Writer interface {
 	Close() error
 }
 
-// Producer handles publishing alerts and DLQ envelopes to Kafka.
+// Producer handles publishing alerts, warnings, and DLQ envelopes to Kafka.
 type Producer struct {
-	alertWriter Writer
-	dlqWriter   Writer
+	alertWriter   Writer
+	dlqWriter     Writer
+	warningWriter Writer
 }
 
 // NewProducer creates a new Producer configured with Kafka brokers and topics.
-func NewProducer(brokers []string, alertTopic, dlqTopic string) *Producer {
-
+func NewProducer(brokers []string, alertTopic, dlqTopic, warningTopic string) *Producer {
 	return &Producer{
 		alertWriter: &kafka.Writer{
 			Addr:     kafka.TCP(brokers...),
@@ -36,6 +34,11 @@ func NewProducer(brokers []string, alertTopic, dlqTopic string) *Producer {
 		dlqWriter: &kafka.Writer{
 			Addr:     kafka.TCP(brokers...),
 			Topic:    dlqTopic,
+			Balancer: &kafka.LeastBytes{},
+		},
+		warningWriter: &kafka.Writer{
+			Addr:     kafka.TCP(brokers...),
+			Topic:    warningTopic,
 			Balancer: &kafka.LeastBytes{},
 		},
 	}
@@ -59,6 +62,24 @@ func (p *Producer) PublishAlert(ctx context.Context, alert domain.Alert) error {
 	return nil
 }
 
+// PublishWarning serializes a validated Event to JSON and produces it to the warnings topic.
+func (p *Producer) PublishWarning(ctx context.Context, event domain.Event) error {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event to JSON: %w", err)
+	}
+
+	err = p.warningWriter.WriteMessages(ctx, kafka.Message{
+		Key:   []byte(event.EventID),
+		Value: payload,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to publish warning message to kafka: %w", err)
+	}
+
+	return nil
+}
+
 // PublishDLQ serializes a DLQEnvelope to JSON and produces it to the DLQ topic.
 func (p *Producer) PublishDLQ(ctx context.Context, dlq domain.DLQEnvelope) error {
 	payload, err := json.Marshal(dlq)
@@ -76,9 +97,9 @@ func (p *Producer) PublishDLQ(ctx context.Context, dlq domain.DLQEnvelope) error
 	return nil
 }
 
-// Closes both the alert and DLQ writers.
+// Closes alert, DLQ, and warning writers.
 func (p *Producer) Close() error {
-	var alertErr, dlqErr error
+	var alertErr, dlqErr, warningErr error
 
 	if p.alertWriter != nil {
 		alertErr = p.alertWriter.Close()
@@ -86,15 +107,12 @@ func (p *Producer) Close() error {
 	if p.dlqWriter != nil {
 		dlqErr = p.dlqWriter.Close()
 	}
+	if p.warningWriter != nil {
+		warningErr = p.warningWriter.Close()
+	}
 
-	if alertErr != nil && dlqErr != nil {
-		return fmt.Errorf("failed to close alert writer (%v) and DLQ writer (%v)", alertErr, dlqErr)
-	}
-	if alertErr != nil {
-		return fmt.Errorf("failed to close alert writer: %w", alertErr)
-	}
-	if dlqErr != nil {
-		return fmt.Errorf("failed to close DLQ writer: %w", dlqErr)
+	if alertErr != nil || dlqErr != nil || warningErr != nil {
+		return errors.Join(alertErr, dlqErr, warningErr)
 	}
 
 	return nil

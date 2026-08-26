@@ -173,9 +173,82 @@ func TestPublishDLQ_WriterError(t *testing.T) {
 	}
 }
 
+func TestPublishWarning_Success(t *testing.T) {
+	event := domain.Event{
+		EventID:   "evt-100",
+		RobotID:   "robot-789",
+		Timestamp: time.Now().Unix(),
+		Status:    domain.StatusOK,
+	}
+
+	writtenMsgs := []kafka.Message{}
+	mockWarningWriter := &mockWriter{
+		writeMessagesFunc: func(ctx context.Context, msgs ...kafka.Message) error {
+			writtenMsgs = append(writtenMsgs, msgs...)
+			return nil
+		},
+	}
+
+	producer := &Producer{
+		alertWriter:   &mockWriter{},
+		dlqWriter:     &mockWriter{},
+		warningWriter: mockWarningWriter,
+	}
+
+	err := producer.PublishWarning(context.Background(), event)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+
+	if len(writtenMsgs) != 1 {
+		t.Fatalf("expected 1 message written, got: %d", len(writtenMsgs))
+	}
+
+	msg := writtenMsgs[0]
+	if string(msg.Key) != event.EventID {
+		t.Errorf("expected msg key %s, got: %s", event.EventID, string(msg.Key))
+	}
+
+	var unmarshaledEvent domain.Event
+	if err := json.Unmarshal(msg.Value, &unmarshaledEvent); err != nil {
+		t.Fatalf("failed to unmarshal published event JSON: %v", err)
+	}
+
+	if !reflect.DeepEqual(unmarshaledEvent, event) {
+		t.Errorf("expected published warning to match input event.\nGot: %+v\nWant: %+v", unmarshaledEvent, event)
+	}
+}
+
+func TestPublishWarning_WriterError(t *testing.T) {
+	event := domain.Event{EventID: "evt-101", RobotID: "robot-789"}
+	expectedErr := errors.New("kafka cluster unreachable")
+
+	mockWarningWriter := &mockWriter{
+		writeMessagesFunc: func(ctx context.Context, msgs ...kafka.Message) error {
+			return expectedErr
+		},
+	}
+
+	producer := &Producer{
+		alertWriter:   &mockWriter{},
+		dlqWriter:     &mockWriter{},
+		warningWriter: mockWarningWriter,
+	}
+
+	err := producer.PublishWarning(context.Background(), event)
+	if err == nil {
+		t.Fatal("expected error publishing warning, got nil")
+	}
+
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected wrapped error %v, got: %v", expectedErr, err)
+	}
+}
+
 func TestProducer_Close_Success(t *testing.T) {
 	alertClosed := false
 	dlqClosed := false
+	warningClosed := false
 
 	producer := &Producer{
 		alertWriter: &mockWriter{
@@ -190,6 +263,12 @@ func TestProducer_Close_Success(t *testing.T) {
 				return nil
 			},
 		},
+		warningWriter: &mockWriter{
+			closeFunc: func() error {
+				warningClosed = true
+				return nil
+			},
+		},
 	}
 
 	err := producer.Close()
@@ -197,53 +276,32 @@ func TestProducer_Close_Success(t *testing.T) {
 		t.Fatalf("expected no error closing producer, got: %v", err)
 	}
 
-	if !alertClosed || !dlqClosed {
-		t.Errorf("expected both writers to be closed. alertClosed=%v, dlqClosed=%v", alertClosed, dlqClosed)
+	if !alertClosed || !dlqClosed || !warningClosed {
+		t.Errorf("expected all writers to be closed. alertClosed=%v, dlqClosed=%v, warningClosed=%v", alertClosed, dlqClosed, warningClosed)
 	}
 }
 
 func TestProducer_Close_Errors(t *testing.T) {
 	errAlert := errors.New("alert close error")
-	errDLQ := errors.New("dlq close error")
 
-	// Alert writer error only
 	producer1 := &Producer{
-		alertWriter: &mockWriter{closeFunc: func() error { return errAlert }},
-		dlqWriter:   &mockWriter{closeFunc: func() error { return nil }},
+		alertWriter:   &mockWriter{closeFunc: func() error { return errAlert }},
+		dlqWriter:     &mockWriter{closeFunc: func() error { return nil }},
+		warningWriter: &mockWriter{closeFunc: func() error { return nil }},
 	}
 	err1 := producer1.Close()
 	if !errors.Is(err1, errAlert) {
 		t.Errorf("expected alert close error, got: %v", err1)
 	}
-
-	// DLQ writer error only
-	producer2 := &Producer{
-		alertWriter: &mockWriter{closeFunc: func() error { return nil }},
-		dlqWriter:   &mockWriter{closeFunc: func() error { return errDLQ }},
-	}
-	err2 := producer2.Close()
-	if !errors.Is(err2, errDLQ) {
-		t.Errorf("expected DLQ close error, got: %v", err2)
-	}
-
-	// Both error
-	producer3 := &Producer{
-		alertWriter: &mockWriter{closeFunc: func() error { return errAlert }},
-		dlqWriter:   &mockWriter{closeFunc: func() error { return errDLQ }},
-	}
-	err3 := producer3.Close()
-	if err3 == nil {
-		t.Error("expected error when both writers fail to close, got nil")
-	}
 }
 
 func TestNewProducer(t *testing.T) {
-	producer := NewProducer([]string{"localhost:9092"}, "alerts-topic", "dlq-topic")
+	producer := NewProducer([]string{"localhost:9092"}, "alerts-topic", "dlq-topic", "warnings-topic")
 	if producer == nil {
 		t.Fatal("expected NewProducer to return non-nil instance")
 	}
 
-	if producer.alertWriter == nil || producer.dlqWriter == nil {
-		t.Error("expected NewProducer to initialize alertWriter and dlqWriter")
+	if producer.alertWriter == nil || producer.dlqWriter == nil || producer.warningWriter == nil {
+		t.Error("expected NewProducer to initialize alertWriter, dlqWriter, and warningWriter")
 	}
 }

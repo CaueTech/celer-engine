@@ -15,9 +15,10 @@ type Aggregator interface {
 }
 
 type MessageProducer interface {
-    PublishAlert(ctx context.Context, alert Alert) error
-    PublishDLQ(ctx context.Context, dlq DLQEnvelope) error
-    Close() error
+	PublishAlert(ctx context.Context, alert Alert) error
+	PublishWarning(ctx context.Context, event Event) error
+	PublishDLQ(ctx context.Context, dlq DLQEnvelope) error
+	Close() error
 }
 
 type MessageConsumer interface {

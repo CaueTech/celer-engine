@@ -1,95 +1,97 @@
-# Celer Engine
+# 🚀 Celer Engine
 
 [![Go Reference](https://img.shields.io/badge/go-1.22+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![Docker Compose](https://img.shields.io/badge/docker--compose-ready-2496ED?style=flat&logo=docker)](https://www.docker.com/)
 [![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-KRaft-231F20?style=flat&logo=apachekafka)](https://kafka.apache.org/)
-[![Status](https://img.shields.io/badge/status-in--development-yellow?style=flat)](#-status-do-projeto)
+[![Status](https://img.shields.io/badge/status-in--development-yellow?style=flat)](#-project-status)
 
-O **celer-engine** é um motor de processamento de eventos de alta performance e baixa latência desenvolvido em **Go**. Ele foi projetado para consumir telemetria de robôs e dispositivos distribuídos via **Apache Kafka**, aplicar validações estritas de schema via **Protocol Buffers (Protobuf)**, agregar eventos em janelas deslizantes de tempo em memória e emitir alertas/warnings em tempo real.
+**celer-engine** is a high-performance, low-latency event processing engine developed in **Go**. It is designed to consume robot and distributed device telemetry via **Apache Kafka**, apply strict schema validation using **Protocol Buffers (Protobuf)**, aggregate events in in-memory sliding time windows, and emit real-time alerts/warnings.
 
 ---
 
-## 🏗️ Arquitetura e Modelo de Concorrência
+## 🏗️ Architecture and Concurrency Model
 
-O motor utiliza um pipeline de processamento concorrente baseado em **3 Goroutines / Threads dedicadas**, interconectadas por **Go Channels buffered**. Esse design isola o I/O de rede das tarefas intensivas em CPU/Memória e provê **backpressure nativo**, prevenindo *Out-Of-Memory (OOM)* sob alta carga.
+The engine uses a concurrent processing pipeline based on **3 dedicated Goroutines / Threads**, interconnected through **buffered Go Channels**. This design isolates network I/O from CPU/memory-intensive tasks and provides native *backpressure*, preventing *Out-Of-Memory (OOM)* conditions under high load.
 
 ```text
-[ REDE / KAFKA (Tópico Input - Protobuf) ]
+[ NETWORK / KAFKA (Input Topic - Protobuf) ]
                │
-               │ (Bytes brutos)
+               │ (Raw bytes)
                ▼
 ┌─────────────────────────────────────────────────────────┐
 │ THREAD 1: Consumer Loop (internal/kafka/consumer.go)    │
-│ -> Lê bytes brutos do Kafka na velocidade da rede       │
-│ -> Alimenta o Ingestion Channel (sem parse do payload)  │
+│ -> Reads raw bytes from Kafka at network speed          │
+│ -> Feeds the Ingestion Channel (without parsing payload)│
 └────────────────────────┬────────────────────────────────┘
                          │
                          │ (Go Channel - Ingestion Buffer / Backpressure)
                          ▼
 ┌─────────────────────────────────────────────────────────┐
 │ THREAD 2: Worker + Validator + Aggregator               │
-│ -> Consome bytes brutos do Channel                      │
-│ -> Valida e deserializa Protobuf em CPU                 │
-│ -> Se Erro Sintático -> Envia JSON para a DLQ           │
-│ -> Se Válido -> Alimenta Agregador em Memória           │
-│    ├── Anomalia leve   -> Gera Warning (Protobuf)       │
-│    └── Limite Atingido -> Gera Alerta (Protobuf)        │
+│ -> Consumes raw bytes from the Channel                  │
+│ -> Validates and deserializes Protobuf in CPU           │
+│ -> On Syntax Error -> Sends JSON to the DLQ             │
+│ -> If Valid -> Feeds the In-Memory Aggregator           │
+│    ├── Minor anomaly   -> Generates Warning (Protobuf)  │
+│    └── Threshold hit   -> Generates Alert (Protobuf)    │
 └────────────────────────┬────────────────────────────────┘
                          │
                          │ (Go Channel - Egress Buffer)
                          ▼
 ┌─────────────────────────────────────────────────────────┐
 │ THREAD 3: Producer (internal/kafka/producer.go)         │
-│ -> Ouve o Egress Channel                                │
-│ -> Roteia DLQ (JSON) para o Tópico "DLQ"                │
-│ -> Roteia Warnings (Protobuf) para o Tópico "Warnings"   │
-│ -> Roteia Alertas (Protobuf) para o Tópico "Alertas"     │
+│ -> Listens to the Egress Channel                        │
+│ -> Routes DLQ (JSON) to the "DLQ" topic                 │
+│ -> Routes Warnings (Protobuf) to the "Warnings" topic   │
+│ -> Routes Alerts (Protobuf) to the "Alerts" topic       │
 └────────────────────────┬────────────────────────────────┘
                          │
                          ▼
-[ REDE / KAFKA (Tópicos: DLQ / Warnings / Alertas) ]
+[ NETWORK / KAFKA (Topics: DLQ / Warnings / Alerts) ]
 ```
 
 ---
 
-## 🚦 Classificação dos Tópicos
+## 🚦 Topic Classification
 
-| Tópico | Formato | Descrição / Gatilho |
+| Topic | Format | Description / Trigger |
 | :--- | :--- | :--- |
-| **`Input`** | Protobuf | Telemetria bruta emitida pelos robôs / gerador de carga. |
-| **`DLQ`** | JSON | Eventos com falhas de schema, corrompidos ou rejeitados pelo `Validator`. |
-| **`Warnings`** | Protobuf | Eventos sintaticamente válidos que apresentam desvios ou anomalias pontuais. |
-| **`Alertas`** | Protobuf | Disparado quando os limites configurados na janela deslizante do `Aggregator` são atingidos. |
+| **`Input`** | Protobuf | Raw telemetry emitted by robots / load generator. |
+| **`DLQ`** | JSON | Events with schema failures, corrupted payloads, or events rejected by the `Validator`. |
+| **`Warnings`** | Protobuf | Syntactically valid events that exhibit deviations or isolated anomalies. |
+| **`Alerts`** | Protobuf | Triggered when the thresholds configured in the `Aggregator`'s sliding window are reached. |
 
 ---
 
-## 📁 Estrutura do Repositório
+## 📁 Repository Structure
 
 ```text
 celer-engine/
 ├── cmd/
-│   ├── engine/       # Ponto de entrada do Celer Engine (main.go)
-│   └── chaos-gen/    # Gerador de carga/caos para simulação de telemetria
+│   ├── engine/       # Celer Engine entry point (main.go)
+│   └── chaos-gen/    # Load/chaos generator for telemetry simulation
 ├── internal/
-│   ├── domain/       # Interfaces e modelos de dados do domínio
-│   ├── kafka/        # Implementação de Consumer e Producer Kafka
-│   ├── proto/        # Definições .proto e código Go gerado
-│   ├── validator/    # Validação e deserialização de payloads
-│   ├── aggregator/   # Janela deslizante e agregação em memória
-│   └── worker/       # Orquestração do pipeline de processamento interno
-└── docker-compose.yml # Ambiente completo isolado (Kafka KRaft, Engine, Chaos Gen)
+│   ├── domain/       # Domain interfaces and data models
+│   ├── kafka/        # Kafka Consumer and Producer implementation
+│   ├── proto/        # .proto definitions and generated Go code
+│   ├── validator/    # Payload validation and deserialization
+│   ├── aggregator/   # Sliding window and in-memory aggregation
+│   └── worker/       # Internal pipeline orchestration
+└── docker-compose.yml # Complete isolated environment (Kafka KRaft, Engine, Chaos Gen)
 ```
 
 ---
 
-## ⚙️ Como Executar o Projeto
+## ⚙️ How to Run the Project
 
-### Pré-requisitos
+### Prerequisites
+
 * [Go 1.22+](https://go.dev/)
-* [Docker](https://www.docker.com/) e Docker Compose
+* [Docker](https://www.docker.com/) and Docker Compose
 
-### Subindo o ambiente
-Para subir toda a infraestrutura (Kafka em modo KRaft + Gerador de Caos + Celer Engine):
+### Starting the Environment
+
+To start the entire infrastructure (Kafka in KRaft mode + Chaos Generator + Celer Engine):
 
 ```bash
 docker compose up --build
@@ -97,14 +99,15 @@ docker compose up --build
 
 ---
 
-## 🚧 Status do Projeto
+## 🚧 Project Status
 
-> ⚠️ **Nota:** Este projeto está em desenvolvimento ativo.
+> ⚠️ **Note:** This project is under active development.
 
-- [x] Arquitetura multi-thread desacoplada via Go Channels
-- [x] Contratos e interfaces de domínio desacoplados
-- [x] Schemas Protocol Buffers (`event.proto`)
-- [x] Gerador de Carga (Chaos Generator)
-- [ ] Implementação do Consumidor e Produtor Kafka
-- [ ] Conclusão do ciclo do Worker Loop e Agregador
-- [ ] Testes de carga e integração E2E
+- [x] Decoupled multi-threaded architecture using Go Channels
+- [x] Decoupled domain contracts and interfaces
+- [x] Protocol Buffers schemas (`event.proto`)
+- [x] Load Generator (Chaos Generator)
+- [ ] Kafka Consumer and Producer implementation
+- [ ] Completion of the Worker Loop and Aggregator
+- [ ] Load and end-to-end (E2E) integration testing
+```

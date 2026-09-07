@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/CaueTech/celer-engine/internal/chaos"
+	"github.com/CaueTech/celer-engine/internal/application/chaos"
 	"github.com/CaueTech/celer-engine/internal/domain"
-	"github.com/CaueTech/celer-engine/internal/proto/pb"
-	"github.com/CaueTech/celer-engine/internal/validator"
+	"github.com/CaueTech/celer-engine/internal/infrastructure/proto/pb"
+	"github.com/CaueTech/celer-engine/internal/infrastructure/validator"
 	"google.golang.org/protobuf/proto"
 )
 

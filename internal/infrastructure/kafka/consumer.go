@@ -1,30 +1,30 @@
 package kafka
 
 import (
-    "context"
-    "fmt"
-    "github.com/segmentio/kafka-go"
+	"context"
+	"fmt"
+	"github.com/segmentio/kafka-go"
 )
 
 type Reader interface {
-    ReadMessage(ctx context.Context) (kafka.Message, error)
-    Close() error
+	ReadMessage(ctx context.Context) (kafka.Message, error)
+	Close() error
 }
 
 type Consumer struct {
-    reader Reader
+	reader Reader
 }
 
 func NewConsumer(brokers []string, topic string, groupID string) *Consumer {
-    return &Consumer{
-        reader: kafka.NewReader(kafka.ReaderConfig{
-            Brokers:  brokers,
-            Topic:    topic,
-            GroupID:  groupID,
-            MinBytes: 10,        // 10B
-            MaxBytes: 10e6,       // 10MB
-        }),
-    }
+	return &Consumer{
+		reader: kafka.NewReader(kafka.ReaderConfig{
+			Brokers:  brokers,
+			Topic:    topic,
+			GroupID:  groupID,
+			MinBytes: 10,   // 10B
+			MaxBytes: 10e6, // 10MB
+		}),
+	}
 }
 
 func (c *Consumer) StartConsuming(ctx context.Context, ingestionChan chan<- []byte) error {
@@ -33,7 +33,7 @@ func (c *Consumer) StartConsuming(ctx context.Context, ingestionChan chan<- []by
 		ingestionChan is the channel where raw bytes read from Kafka are sent. The channel is blocking, meaning if the channel is full, the consumer will wait until there is space to send the bytes.
 	*/
 	for {
-		/* 
+		/*
 			The select statement is used to wait on multiple channels. In this case, it waits for ctx.Done() and sends bytes to ingestionChan. If ctx.Done() is closed, the consumer returns the context error. Otherwise, it proceeds to read from Kafka.
 		*/
 		select {
@@ -53,5 +53,5 @@ func (c *Consumer) StartConsuming(ctx context.Context, ingestionChan chan<- []by
 }
 
 func (c *Consumer) Close() error {
-    return c.reader.Close()
+	return c.reader.Close()
 }

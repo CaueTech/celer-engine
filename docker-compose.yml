@@ -19,3 +19,29 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
       KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+
+  engine:
+    build:
+      context: .
+      dockerfile: build/engine.Dockerfile
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_INPUT_TOPIC: input
+      KAFKA_CONSUMER_GROUP: celer-engine
+      KAFKA_ALERTS_TOPIC: alerts
+      KAFKA_DLQ_TOPIC: dlq
+      KAFKA_WARNINGS_TOPIC: warnings
+
+  chaosmen:
+    build:
+      context: .
+      dockerfile: build/chaosgen.Dockerfile
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_INPUT_TOPIC: input
+      CHAOS_INTERVAL: 200ms
+      CHAOS_RATE: "0.05"

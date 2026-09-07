@@ -2,12 +2,11 @@ package chaos
 
 import (
 	"crypto/rand"
-	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/CaueTech/celer-engine/internal/domain"
-	"github.com/CaueTech/celer-engine/internal/proto/pb"
+	"github.com/CaueTech/celer-engine/internal/infrastructure/proto/pb"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -21,21 +20,12 @@ type Generator struct {
 
 func NewGenerator(cfg domain.ChaosConfig) *Generator {
 	if len(cfg.RobotPool) == 0 {
-		cfg.RobotPool = make([]string, 20)
-		for i := 0; i < 20; i++ {
-			cfg.RobotPool[i] = fmt.Sprintf("bot-%03d", i+1)
-		}
+		cfg.RobotPool = defaultRobotPool()
 	}
 
 	return &Generator{
-		config: cfg,
-		statusPool: []string{
-			domain.StatusOK,
-			domain.StatusOK,
-			domain.StatusOK,
-			domain.StatusWarning,
-			domain.StatusError,
-		},
+		config:     cfg,
+		statusPool: defaultStatusPool(),
 	}
 }
 
@@ -81,9 +71,9 @@ func (g *Generator) GeneratePayload() ([]byte, error) {
 	telemetryStruct, _ := structpb.NewStruct(telemetryMap)
 
 	protoMsg := &pb.EventProto{
-		EventId:   eventID,                                                                             
-		RobotId:   robotID,                                                                             
-		Timestamp: timestamp,                                                                           
+		EventId:   eventID,
+		RobotId:   robotID,
+		Timestamp: timestamp,
 		Status:    status,
 		Telemetry: telemetryStruct,
 	}

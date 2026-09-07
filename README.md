@@ -19,7 +19,7 @@ The engine uses a concurrent processing pipeline based on **3 dedicated Goroutin
                │ (Raw bytes)
                ▼
 ┌─────────────────────────────────────────────────────────┐
-│ THREAD 1: Consumer Loop (internal/kafka/consumer.go)    │
+│ THREAD 1: Consumer Loop (internal/infrastructure/kafka/consumer.go) │
 │ -> Reads raw bytes from Kafka at network speed          │
 │ -> Feeds the Ingestion Channel (without parsing payload)│
 └────────────────────────┬────────────────────────────────┘
@@ -39,7 +39,7 @@ The engine uses a concurrent processing pipeline based on **3 dedicated Goroutin
                          │ (Go Channel - Egress Buffer)
                          ▼
 ┌─────────────────────────────────────────────────────────┐
-│ THREAD 3: Producer (internal/kafka/producer.go)         │
+│ THREAD 3: Producer (internal/infrastructure/kafka/producer.go) │
 │ -> Listens to the Egress Channel                        │
 │ -> Routes DLQ (JSON) to the "DLQ" topic                 │
 │ -> Routes Warnings (Protobuf) to the "Warnings" topic   │
@@ -68,16 +68,38 @@ The engine uses a concurrent processing pipeline based on **3 dedicated Goroutin
 ```text
 celer-engine/
 ├── cmd/
-│   ├── engine/       # Celer Engine entry point (main.go)
-│   └── chaos-gen/    # Load/chaos generator for telemetry simulation
+│   ├── engine/
+│   │   └── main.go                  # Engine initialization and Worker startup
+│   └── chaosmen/
+│       └── main.go                  # Chaos generator entry point
 ├── internal/
-│   ├── domain/       # Domain interfaces and data models
-│   ├── kafka/        # Kafka Consumer and Producer implementation
-│   ├── proto/        # .proto definitions and generated Go code
-│   ├── validator/    # Payload validation and deserialization
-│   ├── aggregator/   # Sliding window and in-memory aggregation
-│   └── worker/       # Internal pipeline orchestration
-└── docker-compose.yml # Complete isolated environment (Kafka KRaft, Engine, Chaos Gen)
+│   ├── domain/                      # Domain models and contracts
+│   │   ├── config.go
+│   │   ├── event.go
+│   │   ├── interfaces.go
+│   │   └── message.go
+│   ├── application/                 # Use-case orchestration
+│   │   ├── worker/                  # Main data processing pipeline
+│   │   │   └── worker.go
+│   │   ├── aggregator/              # Time-window aggregation and alerts
+│   │   │   └── window.go
+│   │   └── chaos/                   # Probabilistic chaos event rules
+│   │       ├── generator.go
+│   │       └── pool.go
+│   └── infrastructure/              # Technical I/O details
+│       ├── kafka/                   # Kafka consumers and producers
+│       │   ├── consumer.go
+│       │   └── producer.go
+│       ├── validator/               # Input schema parsing and validation
+│       │   └── validator.go
+│       └── proto/                   # Protobuf serialization and generated code
+│           ├── event.proto
+│           └── pb/
+│               └── event.pb.go
+├── build/                           # Dockerfiles for executables
+│   ├── engine.Dockerfile
+│   └── chaosgen.Dockerfile
+└── docker-compose.yml
 ```
 
 ---
